@@ -4,52 +4,155 @@ import numpy as np
 import pickle
 import os
 
-# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Is My Business Loan Fair?",
-    page_icon="💰",
+    page_title="LoanLens — Is My Rate Fair?",
+    page_icon="🌿",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ── Premium CSS (Inter font, sidebar gradient, glassmorphic cards, emerald button) ──
+# ── Design System ─────────────────────────────────────────────────────────────
+# Palette: Mint (#3DDAB4) primary · Navy (#080E1A) bg · Coral (#FF6B6B) danger
+# Amber (#FBBF24) warning · Cyan (#06B6D4) info · Slate (#1E293B) surfaces
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 
+/* ── Reset & Base ── */
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
+    background-color: #080E1A;
+    color: #E2E8F0;
 }
 
-/* Sidebar: Deep Navy → Carbon gradient */
+/* ── Sidebar ── */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0E1117 0%, #1a1f2e 60%, #1c2133 100%);
+    background: linear-gradient(160deg, #0D1B2A 0%, #0F2137 50%, #0A1628 100%);
+    border-right: 1px solid rgba(61, 218, 180, 0.15);
 }
-[data-testid="stSidebar"] * {
-    color: #F3F4F6 !important;
+[data-testid="stSidebar"] * { color: #CBD5E1 !important; }
+[data-testid="stSidebar"] h1 {
+    color: #3DDAB4 !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+}
+[data-testid="stSidebar"] .stSelectbox label,
+[data-testid="stSidebar"] .stNumberInput label,
+[data-testid="stSidebar"] .stSlider label,
+[data-testid="stSidebar"] .stRadio label,
+[data-testid="stSidebar"] .stCheckbox label {
+    color: #94A3B8 !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+}
+[data-testid="stSidebar"] [data-baseweb="select"] > div {
+    background-color: rgba(61, 218, 180, 0.06) !important;
+    border: 1px solid rgba(61, 218, 180, 0.2) !important;
+    border-radius: 8px !important;
+}
+[data-testid="stSidebar"] input {
+    background-color: rgba(61, 218, 180, 0.06) !important;
+    border: 1px solid rgba(61, 218, 180, 0.2) !important;
+    border-radius: 8px !important;
+    color: #E2E8F0 !important;
+}
+[data-testid="stSidebar"] [data-testid="stSlider"] div[role="slider"] {
+    background-color: #3DDAB4 !important;
 }
 
-/* Glassmorphic metric cards */
+/* ── Main background ── */
+.main .block-container {
+    background-color: #080E1A;
+    padding-top: 2rem;
+    max-width: 1200px;
+}
+
+/* ── Metric cards ── */
 [data-testid="metric-container"] {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 15px;
-    padding: 16px 20px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+    background: linear-gradient(135deg, rgba(61,218,180,0.08) 0%, rgba(6,182,212,0.05) 100%);
+    border: 1px solid rgba(61, 218, 180, 0.25);
+    border-radius: 16px;
+    padding: 20px 24px;
+    backdrop-filter: blur(12px);
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+[data-testid="metric-container"]:hover {
+    border-color: rgba(61, 218, 180, 0.5);
+    transform: translateY(-2px);
+}
+[data-testid="metric-container"] [data-testid="stMetricLabel"] {
+    color: #94A3B8 !important;
+    font-size: 0.7rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+}
+[data-testid="metric-container"] [data-testid="stMetricValue"] {
+    color: #3DDAB4 !important;
+    font-size: 2rem !important;
+    font-weight: 700 !important;
 }
 
-/* Emerald green primary button + hover */
+/* ── Analyze button ── */
 [data-testid="stButton"] button[kind="primary"] {
-    background-color: #10B981 !important;
+    background: linear-gradient(135deg, #3DDAB4 0%, #06B6D4 100%) !important;
+    color: #080E1A !important;
     border: none !important;
-    border-radius: 10px !important;
-    font-weight: 600 !important;
-    font-size: 16px !important;
-    transition: background-color 0.2s ease !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    letter-spacing: 0.04em !important;
+    padding: 14px 0 !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 4px 20px rgba(61, 218, 180, 0.3) !important;
 }
 [data-testid="stButton"] button[kind="primary"]:hover {
-    background-color: #059669 !important;
+    background: linear-gradient(135deg, #2EC9A3 0%, #0EA5C9 100%) !important;
+    box-shadow: 0 6px 28px rgba(61, 218, 180, 0.45) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* ── Dividers ── */
+hr {
+    border-color: rgba(61, 218, 180, 0.12) !important;
+    margin: 2rem 0 !important;
+}
+
+/* ── Info / warning boxes ── */
+[data-testid="stAlert"] {
+    background: rgba(30, 41, 59, 0.8) !important;
+    border-radius: 12px !important;
+    border-left: 3px solid #3DDAB4 !important;
+}
+
+/* ── Progress bar ── */
+[data-testid="stProgressBar"] > div > div {
+    background: linear-gradient(90deg, #3DDAB4, #06B6D4) !important;
+    border-radius: 999px !important;
+}
+[data-testid="stProgressBar"] > div {
+    background: rgba(61, 218, 180, 0.1) !important;
+    border-radius: 999px !important;
+}
+
+/* ── Expander ── */
+[data-testid="stExpander"] {
+    border: 1px solid rgba(61, 218, 180, 0.15) !important;
+    border-radius: 10px !important;
+    background: rgba(30, 41, 59, 0.4) !important;
+}
+
+/* ── Spinner ── */
+[data-testid="stSpinner"] { color: #3DDAB4 !important; }
+
+/* ── Caption / small text ── */
+.stCaption, [data-testid="stCaptionContainer"] {
+    color: #475569 !important;
+    font-size: 0.78rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -57,7 +160,6 @@ html, body, [class*="css"] {
 # ── Load models ───────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_models():
-    """Load both pkl files once and cache them."""
     try:
         with open('models/xgb_classifier.pkl', 'rb') as f:
             classifier = pickle.load(f)
@@ -70,64 +172,40 @@ def load_models():
 
 classifier, regressor = load_models()
 
-# ── Load lookup table ─────────────────────────────────────────────────────────
 @st.cache_data
 def load_lookup_table():
-    """Load df_features.csv as the lookup table."""
     try:
-        df = pd.read_csv('data/df_features.csv')
-        return df
+        return pd.read_csv('data/df_features.csv')
     except FileNotFoundError:
         st.error("data/df_features.csv missing. Run build_features.py first.")
         st.stop()
 
 df_lookup = load_lookup_table()
 
-# Pre-compute O(1) lookup dicts
 state_rate_map    = df_lookup.groupby('State')['state_default_rate'].mean().to_dict()
 industry_rate_map = df_lookup.groupby('Sector')['industry_default_rate'].mean().to_dict()
 industry_avg_loan = df_lookup.groupby('Sector')['DisbursementGross'].mean().to_dict()
-state_avg_loan    = df_lookup.groupby('State')['GrAppv'].mean().to_dict()
 
-# ── Rate formula ──────────────────────────────────────────────────────────────
 def coverage_to_fair_rate(sba_coverage: float) -> float:
-    """
-    Fair Rate = Prime Rate (8.5%) + (1.0 - predicted_sba_coverage_ratio) * 10
-    High govt backing → low rate.  Low govt backing → high rate.
-    """
     sba_coverage = max(0.0, min(1.0, sba_coverage))
     return round(8.5 + (1.0 - sba_coverage) * 10, 1)
 
-# ── Feature engineering ───────────────────────────────────────────────────────
 def engineer_features_for_model(
     state, sector, loan_amount, jobs_created, jobs_retained,
     num_employees, term_months, business_type, urban_rural,
     low_doc, is_franchise, revolving_credit, df_lookup
 ):
-    """
-    Converts human-readable sidebar inputs into the exact numeric feature
-    vector our XGBoost models were trained on.
-    Returns (input_clf, input_reg).
-    """
     state_default_rate    = state_rate_map.get(state, df_lookup['state_default_rate'].mean())
     industry_default_rate = industry_rate_map.get(sector, df_lookup['industry_default_rate'].mean())
     industry_avg          = industry_avg_loan.get(sector, loan_amount)
 
     loan_to_jobs_ratio   = loan_amount / (jobs_created + 1)
-    is_recession         = 0   # user is applying now, not in 2008
     is_new_business      = 1 if business_type == "New Business" else 0
     loan_vs_industry_avg = loan_amount / industry_avg if industry_avg > 0 else 1.0
     sba_coverage_ratio   = df_lookup['sba_coverage_ratio'].mean()
     disbursement_ratio   = df_lookup['disbursement_ratio'].mean()
-
-    urban_rural_val = 1 if urban_rural == "Urban" else 2
-    low_doc_val     = 1 if low_doc == "LowDoc (Fast Track)" else 0
-    franchise_val   = 1 if is_franchise else 0
-    rev_line_val    = 1 if revolving_credit else 0
-
-    # GrAppv = requested loan amount; SBA_Appv = estimated guarantee
-    gr_appv  = loan_amount
-    sba_appv = loan_amount * sba_coverage_ratio
+    gr_appv              = loan_amount
+    sba_appv             = loan_amount * sba_coverage_ratio
 
     features = {
         'ApprovalFY':            2024,
@@ -136,15 +214,15 @@ def engineer_features_for_model(
         'NewExist':              2 if is_new_business else 1,
         'CreateJob':             jobs_created,
         'RetainedJob':           jobs_retained,
-        'IsFranchise':           franchise_val,
-        'UrbanRural':            urban_rural_val,
-        'RevLineCr':             rev_line_val,
-        'LowDoc':                low_doc_val,
+        'IsFranchise':           1 if is_franchise else 0,
+        'UrbanRural':            1 if urban_rural == "Urban" else 2,
+        'RevLineCr':             1 if revolving_credit else 0,
+        'LowDoc':                1 if low_doc == "LowDoc (Fast Track)" else 0,
         'DisbursementGross':     loan_amount,
         'GrAppv':                gr_appv,
         'SBA_Appv':              sba_appv,
         'loan_to_jobs_ratio':    loan_to_jobs_ratio,
-        'is_recession':          is_recession,
+        'is_recession':          0,
         'industry_default_rate': industry_default_rate,
         'is_new_business':       is_new_business,
         'sba_coverage_ratio':    sba_coverage_ratio,
@@ -153,11 +231,24 @@ def engineer_features_for_model(
         'disbursement_ratio':    disbursement_ratio,
     }
 
-    input_clf = pd.DataFrame([features])
-    # Regressor was trained dropping only sba_coverage_ratio, GrAppv, SBA_Appv (matches train_regressor.py)
-    input_reg = input_clf.drop(columns=['sba_coverage_ratio', 'GrAppv', 'SBA_Appv'])
-
+    input_clf = pd.DataFrame([features])[classifier.feature_names_in_]
+    input_reg = input_clf.drop(columns=['sba_coverage_ratio', 'GrAppv', 'SBA_Appv'], errors='ignore')
+    input_reg = input_reg[regressor.feature_names_in_]
     return input_clf, input_reg
+
+# ── Sector labels ─────────────────────────────────────────────────────────────
+SECTOR_LABELS = {
+    '11': 'Agriculture & Forestry', '21': 'Mining & Oil', '22': 'Utilities',
+    '23': 'Construction', '31': 'Manufacturing', '32': 'Manufacturing',
+    '33': 'Manufacturing', '42': 'Wholesale Trade', '44': 'Retail Trade',
+    '45': 'Retail Trade', '48': 'Transportation', '49': 'Transportation',
+    '51': 'Information', '52': 'Finance & Insurance', '53': 'Real Estate',
+    '54': 'Professional Services', '55': 'Management',
+    '56': 'Administrative Services', '61': 'Educational Services',
+    '62': 'Healthcare', '71': 'Arts & Entertainment',
+    '72': 'Accommodation & Food (Restaurants)',
+    '81': 'Other Services', '92': 'Public Administration',
+}
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -165,120 +256,98 @@ with st.sidebar:
         st.image('app/logo.png', use_column_width=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
-    st.title("Your Business Profile")
-    st.caption("Fill in your details. We'll tell you if your loan is fair.")
+    st.markdown("""
+    <div style='margin-bottom:0.25rem'>
+        <span style='color:#3DDAB4;font-size:0.65rem;font-weight:700;
+        letter-spacing:0.12em;text-transform:uppercase'>
+        ◆ Business Profile
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("Fill in your details below.")
     st.divider()
 
-    # State
     all_states = sorted(df_lookup['State'].dropna().unique().tolist())
     selected_state = st.selectbox(
-        "📍 State",
+        "State",
         options=all_states,
         index=all_states.index('NY') if 'NY' in all_states else 0,
         help="The state where your business is located"
     )
 
-    # Industry
-    SECTOR_LABELS = {
-        '11': 'Agriculture & Forestry',
-        '21': 'Mining & Oil',
-        '22': 'Utilities',
-        '23': 'Construction',
-        '31': 'Manufacturing',
-        '32': 'Manufacturing',
-        '33': 'Manufacturing',
-        '42': 'Wholesale Trade',
-        '44': 'Retail Trade',
-        '45': 'Retail Trade',
-        '48': 'Transportation',
-        '49': 'Transportation',
-        '51': 'Information',
-        '52': 'Finance & Insurance',
-        '53': 'Real Estate',
-        '54': 'Professional Services',
-        '55': 'Management',
-        '56': 'Administrative Services',
-        '61': 'Educational Services',
-        '62': 'Healthcare',
-        '71': 'Arts & Entertainment',
-        '72': 'Accommodation & Food (Restaurants)',
-        '81': 'Other Services',
-        '92': 'Public Administration',
-    }
     available_sectors = sorted(df_lookup['Sector'].dropna().unique().tolist())
     sector_display    = {s: SECTOR_LABELS.get(s, f'Sector {s}') for s in available_sectors}
-
     selected_sector_label = st.selectbox(
-        "🏢 Industry",
+        "Industry",
         options=list(sector_display.values()),
         help="The type of business you operate"
     )
-    selected_sector = [k for k, v in sector_display.items()
-                       if v == selected_sector_label][0]
+    selected_sector = [k for k, v in sector_display.items() if v == selected_sector_label][0]
+
+    with st.expander("Industry Code Reference"):
+        ref_df = pd.DataFrame({
+            "Code": list(SECTOR_LABELS.keys()),
+            "Industry": list(SECTOR_LABELS.values())
+        }).drop_duplicates().sort_values("Code")
+        st.dataframe(ref_df, hide_index=True, use_container_width=True)
 
     st.divider()
 
     loan_amount = st.number_input(
-        "💵 Loan Amount ($)",
-        min_value=5_000,
-        max_value=5_000_000,
-        value=150_000,
-        step=5_000,
-        help="The total amount you are requesting"
-    )
-    jobs_created = st.number_input(
-        "👷 Jobs This Loan Will Create",
-        min_value=0, max_value=500, value=5,
-        help="How many new jobs will this loan help create?"
-    )
-    jobs_retained = st.number_input(
-        "🤝 Jobs Retained",
-        min_value=0, max_value=500, value=3,
-        help="How many existing jobs will this loan help keep?"
-    )
-    num_employees = st.number_input(
-        "👥 Current Number of Employees",
-        min_value=1, max_value=1000, value=10
+        "Loan Amount ($)", min_value=5_000, max_value=5_000_000,
+        value=150_000, step=5_000, help="Total amount you are requesting"
     )
     term_months = st.slider(
-        "📅 Loan Term (Months)",
-        min_value=12, max_value=300, value=84, step=12,
-        help="How long you want to repay the loan. 84 months = 7 years."
-    )
-    business_type = st.radio(
-        "🏗️ Business Status",
-        options=["Existing Business", "New Business"],
-        help="New businesses carry higher default risk"
-    )
-    urban_rural = st.radio(
-        "🌆 Location Type",
-        options=["Urban", "Rural"]
-    )
-    low_doc = st.radio(
-        "📋 Loan Program",
-        options=["Standard Application", "LowDoc (Fast Track)"],
-        help="LowDoc loans have less paperwork but may carry more risk"
-    )
-    is_franchise = st.checkbox(
-        "🔖 This is a Franchise",
-        help="e.g. McDonald's, Subway, etc."
-    )
-    revolving_credit = st.checkbox(
-        "🔄 Revolving Line of Credit",
-        help="A credit line you can draw from repeatedly"
+        "Loan Term (Months)", min_value=12, max_value=300,
+        value=84, step=12, help="84 months = 7 years"
     )
 
-# ── Main body ─────────────────────────────────────────────────────────────────
-st.title("💰 Is My Business Loan Rate Fair?")
-st.caption(
-    "Built on 900,000 real SBA loans (1987–2014). "
-    "Enter your business profile in the sidebar and click Analyze."
-)
+    st.divider()
+
+    c1, c2 = st.columns(2)
+    jobs_created  = c1.number_input("Jobs Created",  min_value=0, max_value=500, value=5)
+    jobs_retained = c2.number_input("Jobs Retained", min_value=0, max_value=500, value=3)
+    num_employees = st.number_input("Current Employees", min_value=1, max_value=1000, value=10)
+
+    st.divider()
+
+    business_type    = st.radio("Business Status", ["Existing Business", "New Business"])
+    urban_rural      = st.radio("Location Type",   ["Urban", "Rural"])
+    low_doc          = st.radio("Loan Program",     ["Standard Application", "LowDoc (Fast Track)"])
+    is_franchise     = st.checkbox("Franchise Business", help="e.g. McDonald's, Subway")
+    revolving_credit = st.checkbox("Revolving Line of Credit")
+
+# ── Hero Header ───────────────────────────────────────────────────────────────
+st.markdown("""
+<div style='padding: 2.5rem 0 1.5rem 0;'>
+    <div style='display:flex; align-items:center; gap:12px; margin-bottom:0.5rem;'>
+        <div style='width:4px; height:40px; background:linear-gradient(180deg,#3DDAB4,#06B6D4);
+             border-radius:2px;'></div>
+        <div>
+            <div style='color:#475569; font-size:0.7rem; font-weight:600;
+                 letter-spacing:0.14em; text-transform:uppercase; margin-bottom:4px;'>
+                SBA Loan Intelligence · 900,000 Real Loans
+            </div>
+            <h1 style='margin:0; font-size:2rem; font-weight:700; color:#F1F5F9;
+                 letter-spacing:-0.02em; line-height:1.1;'>
+                Is My Business Loan Rate <span style='color:#3DDAB4;'>Fair?</span>
+            </h1>
+        </div>
+    </div>
+    <p style='color:#64748B; font-size:0.88rem; margin: 0.75rem 0 0 16px; max-width:600px;'>
+        Enter your business profile in the sidebar. Our XGBoost models — trained on
+        historical SBA data from 1987–2014 — will tell you your default risk and
+        what interest rate you should actually be paying.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
 st.divider()
 
-if st.button("🔍 Analyze My Loan", type="primary", use_container_width=True):
+# ── Analyze Button ────────────────────────────────────────────────────────────
+if st.button("Analyze My Loan →", type="primary", use_container_width=True):
 
-    with st.spinner("Analyzing your loan profile..."):
+    with st.spinner("Running models..."):
         input_clf, input_reg = engineer_features_for_model(
             selected_state, selected_sector, loan_amount, jobs_created,
             jobs_retained, num_employees, term_months, business_type,
@@ -288,9 +357,8 @@ if st.button("🔍 Analyze My Loan", type="primary", use_container_width=True):
         sba_coverage = float(regressor.predict(input_reg)[0])
         fair_rate    = coverage_to_fair_rate(sba_coverage)
 
-    # Historical comparison for this state + sector
     similar = df_lookup[
-        (df_lookup['State']  == selected_state) &
+        (df_lookup['State'] == selected_state) &
         (df_lookup['Sector'] == selected_sector)
     ]
     hist_avg_loan  = similar['GrAppv'].mean()            if len(similar) > 0 else loan_amount
@@ -300,150 +368,197 @@ if st.button("🔍 Analyze My Loan", type="primary", use_container_width=True):
     rate_gap       = fair_rate - hist_fair_rate
     dollar_gap     = loan_amount * (rate_gap / 100) * (term_months / 12)
 
-    # Metrics row
-    st.subheader("Your Results")
+    # Risk color
+    if risk_prob < 0.20:
+        risk_color, risk_label, risk_icon = "#3DDAB4", "Low Risk", "●"
+    elif risk_prob < 0.40:
+        risk_color, risk_label, risk_icon = "#FBBF24", "Medium Risk", "●"
+    else:
+        risk_color, risk_label, risk_icon = "#FF6B6B", "High Risk", "●"
+
+    # ── Section label ──
+    st.markdown("""
+    <div style='display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;margin-top:0.5rem;'>
+        <div style='width:3px;height:20px;background:#3DDAB4;border-radius:2px;'></div>
+        <span style='color:#94A3B8;font-size:0.7rem;font-weight:600;
+             letter-spacing:0.12em;text-transform:uppercase;'>Your Results</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── 4 Metric cards ──
     col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Default Risk",         f"{risk_prob * 100:.1f}%",
+                f"{(risk_prob - hist_default)*100:+.1f}% vs area avg", delta_color="inverse")
+    col2.metric("Fair Interest Rate",   f"{fair_rate:.1f}%",
+                f"{rate_gap:+.1f}% vs similar businesses",             delta_color="inverse")
+    col3.metric("Govt Should Back",     f"{sba_coverage * 100:.1f}%",
+                help="SBA guarantee % our model predicts for your profile")
+    col4.metric("Avg Loan in Your Area",f"${hist_avg_loan:,.0f}",
+                f"{((loan_amount-hist_avg_loan)/hist_avg_loan)*100:+.1f}% vs your request",
+                delta_color="off")
 
-    col1.metric(
-        label="Default Risk",
-        value=f"{risk_prob * 100:.1f}%",
-        delta=f"{(risk_prob - hist_default) * 100:+.1f}% vs your area avg",
-        delta_color="inverse"
-    )
-    col2.metric(
-        label="Fair Interest Rate",
-        value=f"{fair_rate:.1f}%",
-        delta=f"{rate_gap:+.1f}% vs similar businesses",
-        delta_color="inverse"
-    )
-    col3.metric(
-        label="Govt Should Back",
-        value=f"{sba_coverage * 100:.1f}%",
-        help="How much of your loan the government should guarantee based on your risk profile"
-    )
-    col4.metric(
-        label="Avg Loan in Your Area",
-        value=f"${hist_avg_loan:,.0f}",
-        delta=f"{((loan_amount - hist_avg_loan) / hist_avg_loan) * 100:+.1f}% vs your request",
-        delta_color="off"
-    )
+    # ── Risk gauge ──
+    st.markdown("<div style='margin-top:1rem;'>", unsafe_allow_html=True)
+    st.progress(float(min(risk_prob, 1.0)),
+                text=f"{risk_icon} {risk_label}  ·  {risk_prob*100:.1f}% default probability")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # Narrative
-    st.divider()
-    st.subheader("What This Means For You")
-
-    risk_label = (
-        "🟢 Low Risk"    if risk_prob < 0.20 else
-        "🟡 Medium Risk" if risk_prob < 0.40 else
-        "🔴 High Risk"
-    )
-
-    st.info(
-        f"**{risk_label}** — Based on 900,000 historical loans, a "
-        f"**{sector_display[selected_sector]}** business in **{selected_state}** "
-        f"requesting **${loan_amount:,}** has a "
-        f"**{risk_prob * 100:.1f}%** chance of defaulting.\n\n"
-        f"The government should back **{sba_coverage * 100:.1f}%** of your loan, "
-        f"which maps to a fair rate of **{fair_rate:.1f}%**.\n\n"
-        f"Similar businesses in your state and industry historically received "
-        f"a rate implying **{hist_fair_rate:.1f}%**. "
-        f"That gap of **{rate_gap:+.1f} percentage points** costs you roughly "
-        f"**${abs(dollar_gap):,.0f}** over the life of your loan."
-    )
-
-    st.progress(
-        value=float(risk_prob),
-        text=f"Default Risk: {risk_prob * 100:.1f}%"
-    )
+    # ── Narrative card ──
+    gap_direction = "costs you" if dollar_gap > 0 else "saves you"
+    st.markdown(f"""
+    <div style='margin-top:1.5rem; padding:1.5rem 1.75rem;
+         background:linear-gradient(135deg,rgba(30,41,59,0.9) 0%,rgba(15,33,55,0.9) 100%);
+         border:1px solid rgba(61,218,180,0.2); border-radius:16px;
+         border-left: 4px solid {risk_color};'>
+        <div style='display:flex;align-items:center;gap:8px;margin-bottom:0.75rem;'>
+            <span style='color:{risk_color};font-weight:700;font-size:0.95rem;'>
+                {risk_icon} {risk_label}
+            </span>
+            <span style='color:#475569;font-size:0.8rem;'>·</span>
+            <span style='color:#64748B;font-size:0.8rem;'>
+                {sector_display[selected_sector]} · {selected_state}
+            </span>
+        </div>
+        <p style='color:#CBD5E1;font-size:0.9rem;line-height:1.65;margin:0 0 0.75rem 0;'>
+            Based on <strong style='color:#F1F5F9;'>900,000 historical loans</strong>, a
+            <strong style='color:#F1F5F9;'>{sector_display[selected_sector]}</strong> business
+            in <strong style='color:#F1F5F9;'>{selected_state}</strong> requesting
+            <strong style='color:#F1F5F9;'>${loan_amount:,}</strong> carries a
+            <strong style='color:{risk_color};'>{risk_prob*100:.1f}%</strong> default probability.
+        </p>
+        <p style='color:#CBD5E1;font-size:0.9rem;line-height:1.65;margin:0 0 0.75rem 0;'>
+            The government should back
+            <strong style='color:#3DDAB4;'>{sba_coverage*100:.1f}%</strong> of your loan —
+            mapping to a fair rate of
+            <strong style='color:#3DDAB4;'>{fair_rate:.1f}%</strong>.
+            Similar businesses historically imply
+            <strong style='color:#F1F5F9;'>{hist_fair_rate:.1f}%</strong>.
+        </p>
+        <p style='color:#CBD5E1;font-size:0.9rem;line-height:1.65;margin:0;'>
+            That <strong style='color:{risk_color};'>{rate_gap:+.1f}pp gap</strong>
+            {gap_direction} roughly
+            <strong style='color:{risk_color};'>${abs(dollar_gap):,.0f}</strong>
+            over the life of this loan.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.balloons()
 
-# ── Evidence panels ───────────────────────────────────────────────────────────
-st.divider()
-st.subheader("📊 The Evidence Behind This Model")
+# ── Evidence Section ──────────────────────────────────────────────────────────
+st.markdown("<div style='height:2rem;'></div>", unsafe_allow_html=True)
+st.markdown("""
+<div style='display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;'>
+    <div style='width:3px;height:20px;background:linear-gradient(180deg,#3DDAB4,#06B6D4);
+         border-radius:2px;'></div>
+    <span style='color:#94A3B8;font-size:0.7rem;font-weight:600;
+         letter-spacing:0.12em;text-transform:uppercase;'>Model Evidence</span>
+</div>
+""", unsafe_allow_html=True)
 
-core_col1, core_col2 = st.columns(2)
+def chart_card(title, subtitle, path, missing_msg):
+    exists = os.path.exists(path)
+    st.markdown(f"""
+    <div style='padding:1rem 1.25rem 0.75rem;
+         background:rgba(30,41,59,0.5);
+         border:1px solid rgba(61,218,180,0.12);
+         border-radius:14px; margin-bottom:0.25rem;'>
+        <div style='font-size:0.78rem;font-weight:600;color:#F1F5F9;
+             margin-bottom:2px;'>{title}</div>
+        <div style='font-size:0.7rem;color:#475569;'>{subtitle}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    if exists:
+        st.image(path, use_column_width=True)
+    else:
+        st.markdown(f"""
+        <div style='padding:2rem;text-align:center;
+             background:rgba(30,41,59,0.3);border-radius:10px;
+             border:1px dashed rgba(61,218,180,0.15);margin-top:4px;'>
+            <div style='color:#3DDAB4;font-size:1.25rem;margin-bottom:0.5rem;'>⧖</div>
+            <div style='color:#475569;font-size:0.78rem;'>{missing_msg}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
+core_col1, core_col2 = st.columns(2, gap="medium")
 with core_col1:
-    st.markdown("**What drives default risk? (SHAP)**")
-    if os.path.exists('visuals/shap_summary.png'):
-        st.image('visuals/shap_summary.png', use_column_width=True)
-    else:
-        st.warning(
-            "⏳ SHAP summary chart not yet generated.\n\n"
-            "Run generate_visuals.py to produce visuals/shap_summary.png"
-        )
-
+    chart_card(
+        "Feature Importance — SHAP",
+        "Which signals drive default risk most?",
+        "visuals/shap_summary.png",
+        "Run generate_visuals.py"
+    )
 with core_col2:
-    st.markdown("**Default rates over time — the 2008 effect**")
-    if os.path.exists('visuals/time_series.png'):
-        st.image('visuals/time_series.png', use_column_width=True)
-    else:
-        st.warning(
-            "⏳ Time series chart not yet generated.\n\n"
-            "Run generate_visuals.py to produce visuals/time_series.png"
-        )
+    chart_card(
+        "Default Rate Over Time",
+        "The 2008 financial crisis in the data",
+        "visuals/time_series.png",
+        "Run generate_visuals.py"
+    )
 
-# EDA placeholders
-st.divider()
-st.subheader("🗺️ Geographic & Industry Analysis")
-st.caption(
-    "These visuals are in progress. "
-    "They will appear automatically once the EDA charts are generated."
-)
+st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
+st.markdown("""
+<div style='display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;'>
+    <div style='width:3px;height:20px;background:linear-gradient(180deg,#06B6D4,#3DDAB4);
+         border-radius:2px;'></div>
+    <span style='color:#94A3B8;font-size:0.7rem;font-weight:600;
+         letter-spacing:0.12em;text-transform:uppercase;'>Geographic & Industry Analysis</span>
+</div>
+""", unsafe_allow_html=True)
 
-eda_col1, eda_col2 = st.columns(2)
-
+eda_col1, eda_col2 = st.columns(2, gap="medium")
 with eda_col1:
-    st.markdown("**Default Rate by Industry**")
-    if os.path.exists('visuals/industry_risk.png'):
-        st.image('visuals/industry_risk.png', use_column_width=True)
-    else:
-        st.info("📌 Coming soon — industry_risk.png (Person B EDA task)")
-
+    chart_card("Default Rate by Industry", "Which sectors carry the most risk?",
+               "visuals/industry_risk.png", "Run generate_eda.py")
 with eda_col2:
-    st.markdown("**Default Rate by State**")
-    if os.path.exists('visuals/state_risk.png'):
-        st.image('visuals/state_risk.png', use_column_width=True)
-    else:
-        st.info("📌 Coming soon — state_risk.png (Person B EDA task)")
+    chart_card("Default Rate by State", "Geographic bias — the core finding",
+               "visuals/state_risk.png", "Run generate_eda.py")
 
-eda_col3, eda_col4 = st.columns(2)
-
+eda_col3, eda_col4 = st.columns(2, gap="medium")
 with eda_col3:
-    st.markdown("**Loan Size Distribution**")
-    if os.path.exists('visuals/loan_distribution.png'):
-        st.image('visuals/loan_distribution.png', use_column_width=True)
-    else:
-        st.info("📌 Coming soon — loan_distribution.png (Person B EDA task)")
-
+    chart_card("Loan Size Distribution", "The range of loans in the dataset (log scale)",
+               "visuals/loan_distribution.png", "Run generate_eda.py")
 with eda_col4:
-    st.markdown("**Feature Correlation Heatmap**")
-    if os.path.exists('visuals/correlation_heatmap.png'):
-        st.image('visuals/correlation_heatmap.png', use_column_width=True)
-    else:
-        st.info("📌 Coming soon — correlation_heatmap.png (Person B EDA task)")
+    chart_card("Feature Correlation Heatmap", "How engineered features relate to each other",
+               "visuals/correlation_heatmap.png", "Run generate_eda.py")
 
-# Choropleth
-st.divider()
-st.subheader("🗺️ Interactive US Default Rate Map")
-st.caption("Advanced feature — geographic bias visualized across all 50 states.")
+# ── Choropleth ────────────────────────────────────────────────────────────────
+st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
+st.markdown("""
+<div style='display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;'>
+    <div style='width:3px;height:20px;background:linear-gradient(180deg,#FBBF24,#06B6D4);
+         border-radius:2px;'></div>
+    <span style='color:#94A3B8;font-size:0.7rem;font-weight:600;
+         letter-spacing:0.12em;text-transform:uppercase;'>Interactive US Default Rate Map</span>
+</div>
+""", unsafe_allow_html=True)
 
 if os.path.exists('visuals/choropleth.html'):
     with open('visuals/choropleth.html', 'r') as f:
-        choropleth_html = f.read()
-    st.components.v1.html(choropleth_html, height=500)
+        st.components.v1.html(f.read(), height=500)
 else:
-    st.info(
-        "📌 Choropleth map coming soon.\n\n"
-        "Person B: run choropleth.py using Plotly Express and save "
-        "the figure as visuals/choropleth.html using fig.write_html()"
-    )
+    st.markdown("""
+    <div style='padding:3rem;text-align:center;
+         background:rgba(30,41,59,0.3);border-radius:14px;
+         border:1px dashed rgba(61,218,180,0.15);'>
+        <div style='color:#3DDAB4;font-size:2rem;margin-bottom:0.75rem;'>🗺</div>
+        <div style='color:#475569;font-size:0.85rem;'>
+            Interactive choropleth coming soon · run <code style='color:#3DDAB4;'>generate_map.py</code>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ── Footer ────────────────────────────────────────────────────────────────────
-st.divider()
-st.caption(
-    "Built at AI Community Datathon 2026 · Stony Brook University · Finance Track  |  "
-    "Data: SBA National Loan Dataset 1987–2014 · 900,000+ real loans  |  "
-    "Model: XGBoost Classifier (F1: 0.86) + XGBoost Regressor"
-)
+st.markdown("""
+<div style='margin-top:3rem;padding:1.5rem 0;
+     border-top:1px solid rgba(61,218,180,0.1);
+     display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;'>
+    <span style='color:#1E3A2F;font-size:0.72rem;font-weight:700;
+         letter-spacing:0.1em;text-transform:uppercase;'>LoanLens</span>
+    <span style='color:#334155;font-size:0.7rem;'>
+        AI Community Datathon 2026 · Stony Brook University ·
+        SBA Dataset 1987–2014 · 900,000+ loans ·
+        XGBoost Classifier + Regressor
+    </span>
+</div>
+""", unsafe_allow_html=True)
