@@ -155,7 +155,7 @@ def engineer_features_for_model(
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     if os.path.exists('app/logo.png'):
-        st.image('app/logo.png', use_container_width=True)
+        st.image('app/logo.png', use_column_width=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
     st.title("Your Business Profile")
@@ -269,7 +269,7 @@ st.caption(
 )
 st.divider()
 
-if st.button("🔍 Analyze My Loan", type="primary", use_container_width=True):
+if st.button("🔍 Analyze My Loan", type="primary", use_column_width=True):
 
     with st.spinner("Analyzing your loan profile..."):
         input_clf, input_reg = engineer_features_for_model(
@@ -360,7 +360,7 @@ core_col1, core_col2 = st.columns(2)
 with core_col1:
     st.markdown("**What drives default risk? (SHAP)**")
     if os.path.exists('visuals/shap_summary.png'):
-        st.image('visuals/shap_summary.png', use_container_width=True)
+        st.image('visuals/shap_summary.png', use_column_width=True)
     else:
         st.warning(
             "⏳ SHAP summary chart not yet generated.\n\n"
@@ -370,7 +370,7 @@ with core_col1:
 with core_col2:
     st.markdown("**Default rates over time — the 2008 effect**")
     if os.path.exists('visuals/time_series.png'):
-        st.image('visuals/time_series.png', use_container_width=True)
+        st.image('visuals/time_series.png', use_column_width=True)
     else:
         st.warning(
             "⏳ Time series chart not yet generated.\n\n"
@@ -390,14 +390,14 @@ eda_col1, eda_col2 = st.columns(2)
 with eda_col1:
     st.markdown("**Default Rate by Industry**")
     if os.path.exists('visuals/industry_risk.png'):
-        st.image('visuals/industry_risk.png', use_container_width=True)
+        st.image('visuals/industry_risk.png', use_column_width=True)
     else:
         st.info("📌 Coming soon — industry_risk.png (Person B EDA task)")
 
 with eda_col2:
     st.markdown("**Default Rate by State**")
     if os.path.exists('visuals/state_risk.png'):
-        st.image('visuals/state_risk.png', use_container_width=True)
+        st.image('visuals/state_risk.png', use_column_width=True)
     else:
         st.info("📌 Coming soon — state_risk.png (Person B EDA task)")
 
@@ -406,14 +406,14 @@ eda_col3, eda_col4 = st.columns(2)
 with eda_col3:
     st.markdown("**Loan Size Distribution**")
     if os.path.exists('visuals/loan_distribution.png'):
-        st.image('visuals/loan_distribution.png', use_container_width=True)
+        st.image('visuals/loan_distribution.png', use_column_width=True)
     else:
         st.info("📌 Coming soon — loan_distribution.png (Person B EDA task)")
 
 with eda_col4:
     st.markdown("**Feature Correlation Heatmap**")
     if os.path.exists('visuals/correlation_heatmap.png'):
-        st.image('visuals/correlation_heatmap.png', use_container_width=True)
+        st.image('visuals/correlation_heatmap.png', use_column_width=True)
     else:
         st.info("📌 Coming soon — correlation_heatmap.png (Person B EDA task)")
 
