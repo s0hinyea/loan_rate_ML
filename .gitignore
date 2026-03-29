@@ -1,5 +1,12 @@
+# Deployment essentials
 data/*.csv
 !data/df_clean.csv
+models/
+visuals/
+requirements.txt
+app/
+
+# Hidden internal files (Redo)
 specs/
 notebooks/
 venv/
@@ -7,8 +14,7 @@ __pycache__/
 *.pyc
 *.pdf
 .DS_Store
-
-# Hidden scratch files
+data/.DS_Store
 cleaned_data.md
 tasks.md
 judge_presentation_script.md
