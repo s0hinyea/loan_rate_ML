@@ -324,8 +324,8 @@ with st.sidebar:
         value=150_000, step=5_000, help="Total amount you are requesting"
     )
     term_months = st.slider(
-        "Loan Term (Months)", min_value=12, max_value=300,
-        value=84, step=12, help="84 months = 7 years"
+        "Loan Term (Months)", min_value=6, max_value=300,
+        value=84, step=6, help="84 months = 7 years"
     )
 
     st.divider()

@@ -132,9 +132,9 @@ Fair Rate = 8.5% + (1.0 - predicted_sba_coverage_ratio) × 10
 4. **Avg Loan in Your Area** — mean `GrAppv` from df_features.csv filtered to same state+sector.
 
 #### Risk Labels (thresholds)
-- `< 20%` → 🟢 Low Risk
-- `20–40%` → 🟡 Medium Risk
-- `> 40%` → 🔴 High Risk
+- `< 29.5%` (below 50% of optimal threshold) → 🟢 Low Risk
+- `29.5%–59%` (between 50% and optimal threshold) → 🟡 Medium Risk
+- `> 59%` (above optimal threshold 0.59) → 🔴 High Risk
 
 #### Dollar Cost of Rate Gap
 ```
@@ -158,48 +158,48 @@ Simple interest over the loan term. Good enough for a demo — judges will not s
 **Step 1 — The Hook (30 seconds)**
 "900,000 real loans. One question: is your rate fair?"
 
-**Step 2 — 🟢 Low Risk Baseline (~0.3%)**
+**Step 2 — 🟢 Low Risk Baseline (~0.8%)**
 
 | Field | Value |
 |---|---|
 | State | `ND` |
-| Industry | `Healthcare` |
-| Loan Amount | `$200,000` |
-| Jobs Created | `10` · Jobs Retained `5` · Employees `20` |
-| Term | `120 months` |
+| Industry | `Healthcare` (Sector 62) |
+| Loan Amount | `$250,000` |
+| Jobs Created | `5` · Jobs Retained `5` · Employees `10` |
+| Term | `84 months` |
 | Business Status | `Existing Business` · Urban · Standard |
 
-→ Show: 0.3% default risk, low fair rate. Set the baseline.
+→ Show: ~0.8% default risk, low fair rate. Set the baseline. *(Verified: 0.8% against threshold 0.59)*
 
 ---
 
-**Step 3 — 🟡 Medium Risk (~35%)**
+**Step 3 — 🟡 Medium Risk (~44%)**
 
 | Field | Value |
 |---|---|
-| State | `FL` |
-| Industry | `Professional Services` |
-| Loan Amount | `$35,000` |
-| Jobs Created | `2` · Jobs Retained `0` · Employees `4` |
+| State | `OH` |
+| Industry | `Other Services` (Sector 81) |
+| Loan Amount | `$20,000` |
+| Jobs Created | `1` · Jobs Retained `2` · Employees `3` |
 | Term | `48 months` |
-| Business Status | `Existing Business` · Urban · Standard |
+| Business Status | `New Business` · Urban · Standard |
 
-→ Show: ~35% risk, rate climbs. Say: "Same type of owner, smaller loan, riskier state — watch what changes."
+→ Show: ~44% risk, rate climbs. Say: "Same type of owner, smaller loan, riskier state — watch what changes." *(Verified: 44.3%, between thresholds 0.295–0.59)*
 
 ---
 
-**Step 4 — 🔴 High Risk (~83%)**
+**Step 4 — 🔴 High Risk (~91%)**
 
 | Field | Value |
 |---|---|
 | State | `FL` |
-| Industry | `Real Estate` |
-| Loan Amount | `$25,000` |
-| Jobs Created | `1` · Jobs Retained `0` · Employees `2` |
-| Term | `42 months` |
-| Business Status | `Existing Business` · Urban · Standard |
+| Industry | `Arts & Entertainment` (Sector 71) |
+| Loan Amount | `$50,000` |
+| Jobs Created | `0` · Jobs Retained `0` · Employees `1` |
+| Term | `30 months` |
+| Business Status | `New Business` · Urban · Standard |
 
-→ Show: ~83% risk, high fair rate. Say: "The model is flagging this as near-certain default."
+→ Show: ~91% risk, high fair rate. Say: "The model is flagging this as near-certain default." *(Verified: 91.4%, well above threshold 0.59)*
 
 ---
 
