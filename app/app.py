@@ -154,8 +154,8 @@ def engineer_features_for_model(
     }
 
     input_clf = pd.DataFrame([features])
-    # Regressor was trained without GrAppv, SBA_Appv, sba_coverage_ratio, disbursement_ratio, DisbursementGross
-    input_reg = input_clf.drop(columns=['sba_coverage_ratio', 'disbursement_ratio', 'DisbursementGross', 'GrAppv', 'SBA_Appv'])
+    # Regressor was trained dropping only sba_coverage_ratio, GrAppv, SBA_Appv (matches train_regressor.py)
+    input_reg = input_clf.drop(columns=['sba_coverage_ratio', 'GrAppv', 'SBA_Appv'])
 
     return input_clf, input_reg
 
