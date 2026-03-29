@@ -251,7 +251,13 @@ def engineer_features_for_model(
         'zero_jobs_created':          zero_jobs_created,
     }
 
-    input_clf = pd.DataFrame([features])[classifier.feature_names_in_]
+    # CalibratedClassifierCV wraps the base estimator — get feature names safely
+    clf_features = (
+        classifier.feature_names_in_
+        if hasattr(classifier, 'feature_names_in_')
+        else classifier.estimator.feature_names_in_
+    )
+    input_clf = pd.DataFrame([features])[clf_features]
     input_reg = input_clf.drop(columns=['sba_coverage_ratio', 'GrAppv', 'SBA_Appv'], errors='ignore')
     input_reg = input_reg[regressor.feature_names_in_]
     return input_clf, input_reg
