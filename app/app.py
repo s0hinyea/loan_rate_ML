@@ -3,6 +3,13 @@ import pandas as pd
 import numpy as np
 import pickle
 import os
+import sys
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+
+from build_features import build_features
 
 st.set_page_config(
     page_title="FairRate — Is My Rate Fair?",
@@ -178,11 +185,27 @@ classifier, regressor, RISK_THRESHOLD = load_models()
 
 @st.cache_data
 def load_lookup_table():
-    try:
-        return pd.read_csv('data/df_features.csv')
-    except FileNotFoundError:
-        st.error("data/df_features.csv missing. Run build_features.py first.")
-        st.stop()
+    feature_path = 'data/df_features.csv'
+    clean_path = 'data/df_clean.csv'
+
+    if os.path.exists(feature_path):
+        return pd.read_csv(feature_path)
+
+    if os.path.exists(clean_path):
+        df_clean = pd.read_csv(clean_path)
+        df_features = build_features(df_clean)
+        try:
+            df_features.to_csv(feature_path, index=False)
+        except OSError:
+            # Some deploy targets may have read-only app directories.
+            pass
+        return df_features
+
+    st.error(
+        "Missing both data/df_features.csv and data/df_clean.csv. "
+        "Deploy one of those files so the app can build its lookup table."
+    )
+    st.stop()
 
 df_lookup = load_lookup_table()
 
@@ -497,7 +520,7 @@ st.markdown("""
         <div>
             <div style='color:#475569; font-size:0.7rem; font-weight:600;
                  letter-spacing:0.14em; text-transform:uppercase; margin-bottom:4px;'>
-                SBA Loan Intelligence · 900,000 Real Loans
+                SBA Loan Intelligence 
             </div>
             <h1 style='margin:0; font-size:2rem; font-weight:700; color:#F1F5F9;
                  letter-spacing:-0.02em; line-height:1.1;'>
@@ -506,8 +529,7 @@ st.markdown("""
         </div>
     </div>
     <p style='color:#64748B; font-size:0.88rem; margin: 0.75rem 0 0 16px; max-width:600px;'>
-        Enter your business profile in the sidebar. Our XGBoost models — trained on
-        historical SBA data from 1987–2014 — will estimate your default risk,
+        Enter your business profile in the sidebar. Our models will estimate your default risk,
         calculate a fair rate, and compare it directly against your bank's quote.
     </p>
 </div>
@@ -660,7 +682,7 @@ if st.button("Analyze My Loan →", type="primary", use_container_width=True):
         )
         benchmark_text = (
             f"The government should back <strong style='color:#3DDAB4;'>{sba_coverage*100:.1f}%</strong> "
-            f"of your loan — mapping to a fair rate of <strong style='color:#3DDAB4;'>{fair_rate:.1f}%</strong>. "
+            f"of your loan, mapping to a fair rate of <strong style='color:#3DDAB4;'>{fair_rate:.1f}%</strong>. "
             "Because there is no exact local benchmark, the app is leaning more on broader state, sector, term, "
             "and loan-size patterns than on dense local history."
         )
@@ -675,7 +697,7 @@ if st.button("Analyze My Loan →", type="primary", use_container_width=True):
         )
         benchmark_text = (
             f"The government should back <strong style='color:#3DDAB4;'>{sba_coverage*100:.1f}%</strong> "
-            f"of your loan — mapping to a fair rate of <strong style='color:#3DDAB4;'>{fair_rate:.1f}%</strong>. "
+            f"of your loan, mapping to a fair rate of <strong style='color:#3DDAB4;'>{fair_rate:.1f}%</strong>. "
             f"The thin local benchmark implies <strong style='color:#F1F5F9;'>{hist_fair_rate:.1f}%</strong>, "
             f"so the <strong style='color:#F1F5F9;'>{benchmark_gap:+.1f}pp</strong> gap should be read as a rough signal, "
             "not a precise local market quote."
@@ -690,7 +712,7 @@ if st.button("Analyze My Loan →", type="primary", use_container_width=True):
         )
         benchmark_text = (
             f"The government should back <strong style='color:#3DDAB4;'>{sba_coverage*100:.1f}%</strong> "
-            f"of your loan — mapping to a fair rate of <strong style='color:#3DDAB4;'>{fair_rate:.1f}%</strong>. "
+            f"of your loan, mapping to a fair rate of <strong style='color:#3DDAB4;'>{fair_rate:.1f}%</strong>. "
             f"Similar businesses historically imply <strong style='color:#F1F5F9;'>{hist_fair_rate:.1f}%</strong>, "
             f"so your profile sits <strong style='color:#F1F5F9;'>{benchmark_gap:+.1f}pp</strong> from that benchmark."
         )
