@@ -165,12 +165,16 @@ def load_models():
             classifier = pickle.load(f)
         with open('models/xgb_regressor.pkl', 'rb') as f:
             regressor = pickle.load(f)
-        return classifier, regressor
+        threshold = 0.5  # fallback if not yet generated
+        if os.path.exists('models/best_threshold.pkl'):
+            with open('models/best_threshold.pkl', 'rb') as f:
+                threshold = pickle.load(f)
+        return classifier, regressor, threshold
     except FileNotFoundError as e:
         st.error(f"Model file missing: {e}. Run train_models.py and train_regressor.py first.")
         st.stop()
 
-classifier, regressor = load_models()
+classifier, regressor, RISK_THRESHOLD = load_models()
 
 @st.cache_data
 def load_lookup_table():
@@ -182,9 +186,10 @@ def load_lookup_table():
 
 df_lookup = load_lookup_table()
 
-state_rate_map    = df_lookup.groupby('State')['state_default_rate'].mean().to_dict()
-industry_rate_map = df_lookup.groupby('Sector')['industry_default_rate'].mean().to_dict()
-industry_avg_loan = df_lookup.groupby('Sector')['DisbursementGross'].mean().to_dict()
+state_rate_map         = df_lookup.groupby('State')['state_default_rate'].mean().to_dict()
+industry_rate_map      = df_lookup.groupby('Sector')['industry_default_rate'].mean().to_dict()
+industry_avg_loan      = df_lookup.groupby('Sector')['DisbursementGross'].mean().to_dict()
+state_sector_rate_map  = df_lookup.groupby(['State','Sector'])['state_sector_default_rate'].mean().to_dict() if 'state_sector_default_rate' in df_lookup.columns else {}
 
 def coverage_to_fair_rate(sba_coverage: float) -> float:
     sba_coverage = max(0.0, min(1.0, sba_coverage))
@@ -195,17 +200,29 @@ def engineer_features_for_model(
     num_employees, term_months, business_type, urban_rural,
     low_doc, is_franchise, revolving_credit, df_lookup
 ):
+    # Ensure sector is int for lookup in maps (which used df columns as keys)
+    sector_int = int(sector)
     state_default_rate    = state_rate_map.get(state, df_lookup['state_default_rate'].mean())
-    industry_default_rate = industry_rate_map.get(sector, df_lookup['industry_default_rate'].mean())
-    industry_avg          = industry_avg_loan.get(sector, loan_amount)
+    industry_default_rate = industry_rate_map.get(sector_int, df_lookup['industry_default_rate'].mean())
+    industry_avg          = industry_avg_loan.get(sector_int, loan_amount)
 
-    loan_to_jobs_ratio   = loan_amount / (jobs_created + 1)
-    is_new_business      = 1 if business_type == "New Business" else 0
-    loan_vs_industry_avg = loan_amount / industry_avg if industry_avg > 0 else 1.0
-    sba_coverage_ratio   = df_lookup['sba_coverage_ratio'].mean()
-    disbursement_ratio   = df_lookup['disbursement_ratio'].mean()
-    gr_appv              = loan_amount
-    sba_appv             = loan_amount * sba_coverage_ratio
+    loan_to_jobs_ratio        = loan_amount / (jobs_created + 1)
+    is_new_business           = 1 if business_type == "New Business" else 0
+    loan_vs_industry_avg      = loan_amount / industry_avg if industry_avg > 0 else 1.0
+    sba_coverage_ratio        = df_lookup['sba_coverage_ratio'].mean()
+    disbursement_ratio        = df_lookup['disbursement_ratio'].mean()
+    gr_appv                   = loan_amount
+    sba_appv                  = loan_amount * sba_coverage_ratio
+    state_sector_default_rate = state_sector_rate_map.get(
+        (state, sector_int),
+        state_rate_map.get(state, df_lookup['state_default_rate'].mean())
+    )
+    loan_size_bucket = pd.cut(
+        pd.Series([loan_amount]),
+        bins=[0, 25_000, 75_000, 150_000, 500_000, float('inf')],
+        labels=[0, 1, 2, 3, 4]
+    ).astype(int).iloc[0]
+    zero_jobs_created = 1 if jobs_created == 0 else 0
 
     features = {
         'ApprovalFY':            2024,
@@ -227,8 +244,11 @@ def engineer_features_for_model(
         'is_new_business':       is_new_business,
         'sba_coverage_ratio':    sba_coverage_ratio,
         'state_default_rate':    state_default_rate,
-        'loan_vs_industry_avg':  loan_vs_industry_avg,
-        'disbursement_ratio':    disbursement_ratio,
+        'loan_vs_industry_avg':       loan_vs_industry_avg,
+        'disbursement_ratio':         disbursement_ratio,
+        'state_sector_default_rate':  state_sector_default_rate,
+        'loan_size_bucket':           loan_size_bucket,
+        'zero_jobs_created':          zero_jobs_created,
     }
 
     input_clf = pd.DataFrame([features])[classifier.feature_names_in_]
@@ -368,10 +388,11 @@ if st.button("Analyze My Loan →", type="primary", use_container_width=True):
     rate_gap       = fair_rate - hist_fair_rate
     dollar_gap     = loan_amount * (rate_gap / 100) * (term_months / 12)
 
-    # Risk color
-    if risk_prob < 0.20:
+    # Risk color — thresholds derived from optimal threshold tuning
+    low_thresh = RISK_THRESHOLD * 0.5
+    if risk_prob < low_thresh:
         risk_color, risk_label, risk_icon = "#3DDAB4", "Low Risk", "●"
-    elif risk_prob < 0.40:
+    elif risk_prob < RISK_THRESHOLD:
         risk_color, risk_label, risk_icon = "#FBBF24", "Medium Risk", "●"
     else:
         risk_color, risk_label, risk_icon = "#FF6B6B", "High Risk", "●"

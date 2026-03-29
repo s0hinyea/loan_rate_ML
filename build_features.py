@@ -65,6 +65,35 @@ def build_features(df):
     assert df['disbursement_ratio'].isnull().sum() == 0
     assert not np.isinf(df['disbursement_ratio']).any()
 
+    # ── Priority 1 — State × Sector interaction ───────────────
+    # Joint default rate for this exact state + industry combination.
+    # More specific than either state or sector alone — fixes the
+    # "Data Hole" where sparse combos fall back to safe individual signals.
+    df['state_sector_default_rate'] = (
+        df.groupby(['State', 'Sector'])['default']
+        .transform('mean')
+    )
+    assert 'state_sector_default_rate' in df.columns
+    assert df['state_sector_default_rate'].nunique() > 50
+    assert df['state_sector_default_rate'].isnull().sum() == 0
+
+    # ── Priority 4a — Loan size bucket ────────────────────────
+    # Makes the small/large loan threshold explicit for the model.
+    # $25k and $26k are treated identically as continuous — this
+    # encodes the economically meaningful breaks.
+    df['loan_size_bucket'] = pd.cut(
+        df['DisbursementGross'],
+        bins=[0, 25_000, 75_000, 150_000, 500_000, float('inf')],
+        labels=[0, 1, 2, 3, 4]
+    ).astype(int)
+    assert df['loan_size_bucket'].isin([0, 1, 2, 3, 4]).all()
+
+    # ── Priority 4b — Zero jobs created flag ──────────────────
+    # Loans creating zero jobs default at a meaningfully different
+    # rate. loan_to_jobs_ratio exists but doesn't isolate this sharply.
+    df['zero_jobs_created'] = (df['CreateJob'] == 0).astype(int)
+    assert df['zero_jobs_created'].isin([0, 1]).all()
+
     # Final Validation Block
     new_features = [
         'loan_to_jobs_ratio',
@@ -74,7 +103,10 @@ def build_features(df):
         'sba_coverage_ratio',
         'state_default_rate',
         'loan_vs_industry_avg',
-        'disbursement_ratio'
+        'disbursement_ratio',
+        'state_sector_default_rate',
+        'loan_size_bucket',
+        'zero_jobs_created',
     ]
 
     # Confirm all 8 features exist
