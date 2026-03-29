@@ -6,3 +6,4 @@ seaborn
 streamlit
 shap
 plotly
+altair<5
