@@ -8,21 +8,55 @@ from sklearn.metrics import f1_score, classification_report
 from sklearn.calibration import CalibratedClassifierCV
 from xgboost import XGBClassifier
 
+AGG_FEATURES = ['state_default_rate', 'industry_default_rate', 'state_sector_default_rate']
+
+def apply_leakage_safe_default_rates(train_df, target_df):
+    """
+    Build aggregate default-rate features from training data only, then map them
+    onto any target frame. This keeps evaluation honest while preserving the
+    same feature schema the app expects at inference time.
+    """
+    global_default = train_df['default'].mean()
+    state_map = train_df.groupby('State')['default'].mean()
+    sector_map = train_df.groupby('Sector')['default'].mean()
+    combo_map = train_df.groupby(['State', 'Sector'])['default'].mean()
+
+    out = target_df.copy()
+    out['state_default_rate'] = out['State'].map(state_map).fillna(global_default)
+    out['industry_default_rate'] = out['Sector'].map(sector_map).fillna(global_default)
+
+    combo_values = pd.Series(
+        list(zip(out['State'], out['Sector'])),
+        index=out.index
+    ).map(combo_map)
+    combo_fallback = (
+        0.5 * out['state_default_rate'] + 0.5 * out['industry_default_rate']
+    )
+    out['state_sector_default_rate'] = combo_values.fillna(combo_fallback)
+    return out
+
 # ── Load data ─────────────────────────────────────────────────────────────────
 df = pd.read_csv('data/df_features.csv')
 
-# ── Prepare features and target ───────────────────────────────────────────────
-y_class = df['default']
-X = df.drop(columns=['default', 'State', 'Sector'])
-
 # ── Train/test split ──────────────────────────────────────────────────────────
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y_class, test_size=0.2, random_state=42
+train_df, test_df = train_test_split(
+    df, test_size=0.2, random_state=42, stratify=df['default']
 )
+train_df = apply_leakage_safe_default_rates(train_df, train_df)
+test_df = apply_leakage_safe_default_rates(train_df, test_df)
+
+# ── Prepare features and target ───────────────────────────────────────────────
+y_train = train_df['default']
+y_test = test_df['default']
+X_train = train_df.drop(columns=['default', 'State', 'Sector'])
+X_test = test_df.drop(columns=['default', 'State', 'Sector'])
 
 assert 'state_default_rate' in X_train.columns, "Geographic signal missing"
 assert 'industry_default_rate' in X_train.columns, "Industry signal missing"
 assert 'state_sector_default_rate' in X_train.columns, "Interaction feature missing — re-run build_features.py"
+for col in AGG_FEATURES:
+    assert X_train[col].isnull().sum() == 0, f"Nulls in train feature: {col}"
+    assert X_test[col].isnull().sum() == 0, f"Nulls in test feature: {col}"
 print("All geographic and industry signals present in classification data")
 print(f"Train size: {X_train.shape}, Test size: {X_test.shape}")
 
@@ -47,7 +81,7 @@ print(f"  scale_pos_weight: {scale_pos_weight:.2f}  (dataset is {(y_train==0).me
 
 # Split a calibration set from training data before fitting (Priority 5)
 X_train_main, X_cal, y_train_main, y_cal = train_test_split(
-    X_train, y_train, test_size=0.2, random_state=99
+    X_train, y_train, test_size=0.2, random_state=99, stratify=y_train
 )
 
 xgb_model = XGBClassifier(
@@ -95,10 +129,9 @@ sample = calibrated_clf.predict_proba(X_test[:10])[:, 1]
 print(f"  Sample calibrated probs: {[f'{p:.1%}' for p in sample]}")
 
 # ── F1 Comparison Table ───────────────────────────────────────────────────────
-BASELINE_F1 = 0.86
 results = pd.DataFrame({
     'Model':    ['Logistic Reg.', 'Random Forest', 'XGBoost (baseline)', 'XGBoost (improved)'],
-    'F1_Score': [round(lr_f1, 4), round(rf_f1, 4), BASELINE_F1, round(xgb_f1_cal, 4)]
+    'F1_Score': [round(lr_f1, 4), round(rf_f1, 4), round(xgb_f1_raw, 4), round(xgb_f1_cal, 4)]
 })
 print("\n── Model Comparison ──────────────────────────────────────")
 print(results.to_string(index=False))
@@ -110,8 +143,8 @@ print(f"New features added:    state_sector_default_rate, loan_size_bucket, zero
 print(f"scale_pos_weight:      {scale_pos_weight:.2f}")
 print(f"Optimal threshold:     {best_threshold:.2f}")
 print(f"Final F1:              {xgb_f1_cal:.4f}")
-print(f"Baseline F1:           {BASELINE_F1}")
-print(f"Total gain:            {xgb_f1_cal - BASELINE_F1:+.4f}")
+print(f"Raw XGBoost F1:        {xgb_f1_raw:.4f}")
+print(f"Threshold gain:        {xgb_f1_cal - xgb_f1_raw:+.4f}")
 print(f"Calibration:           Applied (Platt scaling)")
 
 # ── Save calibrated model ─────────────────────────────────────────────────────

@@ -1,6 +1,15 @@
 data/*.csv
 !data/df_clean.csv
-specs
+specs/
+notebooks/
 venv/
 __pycache__/
 *.pyc
+*.pdf
+.DS_Store
+
+# Hidden scratch files
+cleaned_data.md
+tasks.md
+judge_presentation_script.md
+datathon_finance_project*.md

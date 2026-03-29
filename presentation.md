@@ -34,9 +34,11 @@ We didn't just use the raw data. We engineered **11 "Super Features"** that tell
 
 ### 4. The Model Progression (The "How")
 We didn't just jump to XGBoost. We built a logical path to show the judges our evolution:
-1.  **Baseline (Logistic Regression):** F1 = **0.4015**. (Failed linearly; proved the data's complexity).
-2.  **Intermediate (Random Forest):** F1 = **0.8489**. (The breakthrough into non-linear patterns).
-3.  **Champion (XGBoost + Tuning):** F1 = **0.8621**. (Optimized with Balanced Weights, Threshold Tuning, and **Platt Calibration**).
+1.  **Baseline (Logistic Regression):** F1 = **0.4346**. (Failed linearly; proved the data's complexity).
+2.  **Intermediate (Random Forest):** F1 = **0.8400**. (The breakthrough into non-linear patterns).
+3.  **Champion (XGBoost + Tuning):** F1 = **0.8607**. (Optimized with Balanced Weights, Threshold Tuning, and **Platt Calibration**).
+
+**Why we trust that score:** the geography features (`state_default_rate`, `industry_default_rate`, `state_sector_default_rate`) are rebuilt from the training split only before evaluation, so the test set is no longer leaking its own default outcomes back into those aggregates.
 
 ---
 
@@ -52,8 +54,8 @@ To power our "Fair Rate" tool, we trained a separate **XGBoost Regressor** to pr
 **Scenario:** "Imagine a restaurant owner in Queens, NY. 3 years in business, 10 employees. The bank quoted them 8.9%."
 **The Reveal:**
 1.  Open the Streamlit App.
-2.  Input the business details LIVE.
-3.  **The Output:** "Default Risk: 14% (Low) | Fair Rate: 6.4%."
+2.  Input the business details LIVE, including the bank's quoted rate.
+3.  **The Output:** "Default Risk: 14% (Low) | Fair Rate: 6.4% | Quoted Rate: 8.9% | Potential Overcharge: ~$12,000."
 4.  **The Impact:** "That's **$12,000 extra** out of that owner's pocket over 10 years. Our tool gives them the data they need to walk back into that bank and negotiate."
 
 ---
@@ -77,7 +79,7 @@ Two charts are generated and embedded directly in the Streamlit app.
 
 #### Visual 1 — SHAP Summary Plot (`visuals/shap_summary.png`)
 - **What it is:** A beeswarm plot showing which features pushed the XGBoost classifier's predictions up or down, and by how much.
-- **How it was made:** `shap.TreeExplainer` on the trained `xgb_classifier.pkl`, run on a **5,000-row random sample** (full 900k would take hours on a laptop).
+- **How it was made:** `shap.TreeExplainer` on the fitted XGBoost base estimator inside the calibrated classifier artifact, run on a **5,000-row random sample**.
 - **What to say:** "Each dot is one loan. Features are ranked top-to-bottom by importance. Red = high feature value, blue = low. Look at where `state_default_rate` and `industry_default_rate` rank — they are in the top features. The model learned that *where you are* and *what industry you're in* are the dominant predictors of default. That is the geographic bias finding."
 - **Talking point for judges:** If asked why SHAP over built-in feature importance — "XGBoost's default importance just counts how often a feature is split on. SHAP actually measures the magnitude of impact on the final prediction, which is far more honest."
 
@@ -93,11 +95,11 @@ Two charts are generated and embedded directly in the Streamlit app.
 #### Architecture
 - **Entry point:** `streamlit run app/app.py` from the project root.
 - **Model loading:** Both pkl files load once via `@st.cache_resource` — not reloaded on every click.
-- **Data loading:** `df_features.csv` loads via `@st.cache_data` and pre-computes four O(1) lookup dicts for state rates, industry rates, industry avg loan size, and state avg loan size.
+- **Data loading:** `df_features.csv` loads via `@st.cache_data` and pre-computes four O(1) lookup dicts for state rates, industry rates, industry avg loan size, and state-sector risk.
 - **Styling:** Custom CSS injected via `st.markdown()` — Inter font, Navy→Carbon sidebar gradient, glassmorphic metric cards, emerald green `#10B981` analyze button.
 
 #### The Feature Engineering Bridge (`engineer_features_for_model()`)
-This is the most technically important function in the app. It converts 11 human inputs into the exact 21-column feature vector the classifier was trained on, and the 18-column vector the regressor was trained on.
+This is the most technically important function in the app. It converts the user's business profile into the exact 24-column feature vector the classifier was trained on and the 18-column vector the regressor was trained on. The quoted-rate input stays outside the model and is used in a post-prediction comparison layer.
 
 | Human Input | Model Feature | How |
 |---|---|---|
@@ -115,9 +117,12 @@ This is the most technically important function in the app. It converts 11 human
 | — (hardcoded) | `is_recession` | Always `0` (user is not in 2008) |
 | — (hardcoded) | `ApprovalFY` | `2024` |
 | — (mean from data) | `sba_coverage_ratio`, `disbursement_ratio` | Historical averages as neutral priors |
+| Quoted Rate input | — | Compared against `fair_rate` after prediction to estimate overcharge / savings |
 
-**Classifier gets:** all 21 columns above.
-**Regressor gets:** same minus `sba_coverage_ratio`, `GrAppv`, `SBA_Appv` (matches `train_regressor.py` exactly).
+The app also derives `state_sector_default_rate`, `loan_size_bucket`, and `zero_jobs_created` before scoring.
+
+**Classifier gets:** the full 24-column feature vector.
+**Regressor gets:** the same base profile, then the app aligns to the exact feature schema expected by the saved regressor artifact.
 
 #### The Fair Rate Formula
 ```
@@ -131,8 +136,8 @@ Fair Rate = 8.5% + (1.0 - predicted_sba_coverage_ratio) × 10
 #### The Four Output Metrics
 1. **Default Risk %** — `classifier.predict_proba(input_clf)[0][1]` × 100. Delta shows vs historical avg for that state+sector combo.
 2. **Fair Interest Rate %** — from the formula above. Delta shows vs what similar businesses historically implied.
-3. **Govt Should Back %** — raw `sba_coverage` × 100. Shows how much SBA confidence the model predicts.
-4. **Avg Loan in Your Area** — mean `GrAppv` from df_features.csv filtered to same state+sector.
+3. **Bank Quoted Rate %** — the user's quoted APR, shown directly against the fair-rate estimate.
+4. **Potential Overcharge / Savings** — simple-interest estimate of how much the quoted rate costs or saves over the full term.
 
 #### Risk Labels (thresholds)
 - `< 29.5%` (below 50% of optimal threshold) → 🟢 Low Risk
@@ -141,7 +146,8 @@ Fair Rate = 8.5% + (1.0 - predicted_sba_coverage_ratio) × 10
 
 #### Dollar Cost of Rate Gap
 ```
-dollar_gap = loan_amount × (rate_gap / 100) × (term_months / 12)
+quote_gap  = quoted_rate - fair_rate
+dollar_gap = loan_amount × (quote_gap / 100) × (term_months / 12)
 ```
 Simple interest over the loan term. Good enough for a demo — judges will not stress-test this math.
 
@@ -154,106 +160,102 @@ Simple interest over the loan term. Good enough for a demo — judges will not s
 
 ### 10. Demo Script — Recommended Live Walkthrough
 
-> All three inputs below are brute-force verified against the trained model. These are guaranteed results, not estimates.
+> The risk predictions below are verified against the trained model. The quoted-rate comparison is user-entered, and the dollar impact is then computed deterministically from that quote.
+
+> These three presets are built into the app's **Quick Demo Presets** and all use state-industry combinations with strong historical support, so the live demo stays stable.
 
 ---
 
 **Step 1 — The Hook (30 seconds)**
 "900,000 real loans. One question: is your rate fair?"
 
-**Step 2 — 🟢 Low Risk Baseline (~0.8%)**
+Click a preset in the sidebar, then point out that the quote, fair rate, and overcharge all update live. Each preset is still fully editable after loading.
+
+**Step 2 — 🟢 Low Risk Baseline (~0.7%)**
 
 | Field | Value |
 |---|---|
 | State | `ND` |
 | Industry | `Healthcare` (Sector 62) |
-| Loan Amount | `$250,000` |
+| Loan Amount | `$150,000` |
+| Quoted Rate | `13.4%` |
 | Jobs Created | `5` · Jobs Retained `5` · Employees `10` |
 | Term | `84 months` |
 | Business Status | `Existing Business` · Urban · Standard |
 
-→ Show: ~0.8% default risk, low fair rate. Set the baseline. *(Verified: 0.8% against threshold 0.59)*
+→ Show: ~`0.7%` default risk, fair rate ~`13.6%`, quote lands **within fair range**, support count `151`. This is your calm baseline.
 
 ---
 
-**Step 3 — 🟡 Medium Risk (~44%)**
+**Step 3 — 🟡 Medium Risk Overcharge (~38%)**
 
 | Field | Value |
 |---|---|
-| State | `OH` |
-| Industry | `Other Services` (Sector 81) |
+| State | `CA` |
+| Industry | `Retail Trade` (Sector 44) |
 | Loan Amount | `$20,000` |
-| Jobs Created | `1` · Jobs Retained `2` · Employees `3` |
+| Quoted Rate | `15.0%` |
+| Jobs Created | `1` · Jobs Retained `0` · Employees `2` |
 | Term | `48 months` |
 | Business Status | `New Business` · Urban · Standard |
 
-→ Show: ~44% risk, rate climbs. Say: "Same type of owner, smaller loan, riskier state — watch what changes." *(Verified: 44.3%, between thresholds 0.295–0.59)*
+→ Show: ~`38.1%` risk, fair rate ~`13.5%`, potential overcharge ~`$1,200`, support count `10,884`. Say: "This is the caution zone. The loan is not catastrophic, but the quote is clearly above what the model thinks is fair."
 
 ---
 
-**Step 4 — 🔴 High Risk (~91%)**
+**Step 4 — 🔴 High Risk Overcharge (~82%)**
 
 | Field | Value |
 |---|---|
-| State | `FL` |
-| Industry | `Arts & Entertainment` (Sector 71) |
-| Loan Amount | `$50,000` |
-| Jobs Created | `0` · Jobs Retained `0` · Employees `1` |
+| State | `CA` |
+| Industry | `Retail Trade` (Sector 44) |
+| Loan Amount | `$20,000` |
+| Quoted Rate | `16.5%` |
+| Jobs Created | `2` · Jobs Retained `1` · Employees `5` |
 | Term | `30 months` |
-| Business Status | `New Business` · Urban · Standard |
+| Business Status | `Existing Business` · Urban · Standard |
 
-→ Show: ~91% risk, high fair rate. Say: "The model is flagging this as near-certain default." *(Verified: 91.4%, well above threshold 0.59)*
+→ Show: ~`82.0%` risk, fair rate ~`13.0%`, potential overcharge ~`$1,750`, support count `10,884`. Say: "Now we are in a genuinely dangerous lending profile and the quote is also materially above the model's fair-rate estimate."
 
 ---
 
-**Step 5 — The Counterintuitive Finding (Best Judge Moment)**
-Point at the difference between Step 2 and Step 4 and say:
-> "Notice what changed. The high-risk loan is actually *smaller* — $25,000 versus $200,000. The model learned something real from the data: small, short-term loans are emergency cash grabs. Large, long-term loans are bank-vetted, structured financing. $25k over 42 months is desperate. $200k over 10 years is deliberate. That pattern came entirely from the data — we didn't program it in."
+**Step 5 — The Confidence Guardrail (Best Judge Moment)**
+Switch to a sparse pocket like `FL + Sector 92` and say:
+> "When a state-industry pocket has too little historical support, the app warns you and lowers its confidence language instead of pretending the estimate is equally reliable. That makes the tool more honest."
 
 ---
 
 **Step 6 — Point at SHAP chart**
-"The model isn't guessing. SHAP shows exactly which features drove that result. `sba_coverage_ratio`, `loan_vs_industry_avg`, and `state_default_rate` are the top signals. The model is transparent about why."
+"The model isn't guessing. SHAP shows which combinations of term, geography, loan structure, and business profile pushed the prediction up or down. The model is transparent about why."
 
 ---
 
-### 11. The Counterintuitive Model Behavior — Know This Cold
+### 11. Interaction Effects + Sparse Pockets — Know This Cold
 
-**The Discovery:** During live testing we tried to trigger 🔴 High Risk using large loans ($300–400k), long terms (120mo), and high-risk states/sectors. The model returned ~0.5–2% risk every time regardless of inputs. This led us to investigate what real high-risk rows in the training data actually look like.
+**The Discovery:** The model does not follow one simple rule like "shorter term is always safer" or "smaller loans are always riskier." It learns **interactions** across term, loan size, geography, industry, and business profile.
 
-**What a Real High-Risk Loan Looks Like (from the training data):**
-```
-Loan Amount:      $25,000       ← very small
-Term:             42 months     ← short
-Employees:        2             ← tiny operation
-loan_vs_industry_avg: 0.21     ← far below sector average
-SBA Coverage:     85%           ← surprisingly high
-```
+**What this means in practice:**
+- A term change can raise or lower risk depending on the surrounding profile.
+- A small loan can be low risk in one dense segment and high risk in another.
+- Sparse state-industry pockets can behave noisily because the model has fewer local examples to anchor on.
 
-**Why Small = Risky (The Economic Logic):**
-- Large long-term loans ($150k+, 7–10 years) require extensive bank underwriting. Banks only approve those for stable businesses.
-- Small short-term loans ($25k, 3 years) are fast, low-scrutiny. They get approved for businesses in financial distress needing emergency cash.
-- The model learned this pattern purely from 900,000 historical outcomes — we didn't engineer it. It's emergent behavior.
-
-**Verified Model Output by Loan Profile:**
-
-| Profile | Default Risk |
-|---|---|
-| $200k · 120mo · 20 employees · ND · Healthcare | **0.3%** |
-| $35k · 48mo · 4 employees · FL · Prof. Services | **~35%** |
-| $25k · 42mo · 2 employees · FL · Real Estate | **~83%** |
+**That is why the app now exposes historical support directly:**
+- `<10 loans` → **Very Limited Support**
+- `10–29 loans` → **Limited Support**
+- `30+ loans` → no warning
 
 **How to Use This With Judges:**
-> "We found something counterintuitive in the data — small loans are riskier than large ones. That's not a bug. It reflects how banking actually works. Large structured loans go to stable businesses. Small fast loans go to businesses that are struggling. Our model learned that economic reality from 900,000 real outcomes without us telling it. That's what good feature engineering unlocks."
+> "Our model captures interactions, not one-dimensional rules. And when the local history is thin, the app says so. We would rather surface uncertainty than pretend every estimate carries the same confidence."
 
 ---
 
 ### 12. The "Data Hole" — Technical Discovery & Solution
-During testing, we found that certain State+Sector combos had zero historical outcomes. We solved this in v1.1:
+During testing, we found that certain State+Sector combos had very little historical support. We solved this in v1.2:
 1.  **Direct Interaction Feature:** We added `state_sector_default_rate` as a primary feature. This allows the model to "see" that a Retailer in Georgia is fundamentally different from a Retailer in Maine, even if the state-level averages are similar. 
-2.  **Cross-Model Verification:** Our **Fair Rate Regressor** (predicting govt backing) often catches risk even when the Classifier has sparse data. This two-model validation makes the system significantly safer.
+2.  **In-App Confidence Guardrail:** The app now counts historical loans for the exact state + sector pocket and warns the user when support is sparse.
+3.  **Cross-Model Verification:** Our **Fair Rate Regressor** (predicting govt backing) often catches risk even when the Classifier has thin local data. This two-model validation makes the system significantly safer.
 
-**Judge Moment:** *"We didn't just accept sparse data as a limit. We engineered interaction features that explicitly capture the joint risk of state and sector, providing 86% F1 accuracy even across unique geographic pockets."*
+**Judge Moment:** *"We didn't just accept sparse data as a limit. We engineered interaction features and then surfaced confidence in the app itself, so users can see when a result comes from a dense historical pocket versus a thin one."*
 
 ---
 
@@ -297,16 +299,16 @@ During testing, we found that certain State+Sector combos had zero historical ou
 *   **The Answer:** "While the specific rates have changed, the *behavioral patterns* remain the same. The way small businesses reacted to the 2008 financial crisis is a vital blueprint for how they react to any modern economic shock. Our model captures those indestructible patterns of risk."
 
 #### Q6: "Why does a $25k loan show higher risk than a $200k loan? That seems backwards."
-*   **The Answer:** "It's counterintuitive but economically real. Large long-term loans require extensive bank underwriting — banks only approve those for stable, vetted businesses. Small short-term loans are fast and low-scrutiny, and they disproportionately go to businesses in financial distress needing emergency cash. The model learned this pattern entirely from 900,000 historical outcomes. We didn't engineer it in — it emerged from the data. That's the difference between feature engineering and letting a model find real signal."
+*   **The Answer:** "Sometimes the model does assign higher risk to a smaller loan, but that's not a universal rule. It depends on the full interaction between term, geography, industry, business status, and loan structure. That's exactly why we show SHAP and historical support in the app — to avoid pretending there's one simple explanation for every profile."
 
 #### Q7: "Your model sometimes shows low default risk for high-risk states. Is it broken?"
-*   **The Answer:** "No — it's exposing a real limitation worth discussing. When a state + sector combination has sparse historical data, the model falls back on individual loan features (size, term, employees) which may all look safe. But notice the fair rate still goes up — our regressor catches the geographic risk through the SBA coverage signal even when the classifier can't. In production we'd add a smoothed state prior to handle sparse cells. That's our top-priority improvement for v2."
+*   **The Answer:** "No — that usually means the local state + sector pocket is sparse. The app now warns when that happens and lowers its confidence language. Under the hood, the model then relies more on broader signals like term, size, and sector behavior. In a production version we'd add hierarchical smoothing to make those sparse pockets even safer."
 
 #### Q8: "How long does it take to retrain as new SBA data comes in?"
 *   **The Answer:** "Thanks to our efficient feature engineering pipeline and XGBoost, the entire pipeline — cleaning, feature engineering, training all three models — runs end to end in under 2 minutes. This means the tool stays current as new SBA data is published annually."
 
 #### Q9: "What's the biggest thing you'd change about the model?"
-*   **The Answer:** "Two things. First, we'd add a `state_sector_default_rate` interaction feature — right now we have state risk and industry risk as separate signals, but their *combination* is more predictive than either alone. Second, we'd tune the decision threshold using the validation set rather than defaulting to 50%. With an 82/18 class split, the optimal cutoff is probably around 30%, which would meaningfully improve recall on actual defaults."
+*   **The Answer:** "Two things. First, we'd add hierarchical smoothing for sparse state-sector pockets so rare combinations behave more smoothly. Second, we'd replace the hardcoded fair-rate constant with a live prime-rate feed, so the tool stays economically current instead of relying on a static baseline."
 
 ---
 *Created by Person A (Model Lead) and Person B (Data/App Lead)*

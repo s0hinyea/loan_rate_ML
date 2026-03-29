@@ -1,8 +1,19 @@
 import pandas as pd
 import pickle
 import os
+os.environ.setdefault('MPLCONFIGDIR', '/tmp/matplotlib-cache')
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import shap
+
+def unwrap_classifier_for_shap(model):
+    """
+    SHAP supports the underlying tree model, not the calibrated sklearn wrapper.
+    """
+    if hasattr(model, 'estimator') and model.estimator is not None:
+        return model.estimator
+    return model
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 os.makedirs('visuals', exist_ok=True)
@@ -10,16 +21,23 @@ os.makedirs('visuals', exist_ok=True)
 # ── Load data and model ───────────────────────────────────────────────────────
 df = pd.read_csv('data/df_features.csv')
 
-X = df.drop(columns=['default', 'State', 'Sector'])
-
 with open('models/xgb_classifier.pkl', 'rb') as f:
-    xgb_model = pickle.load(f)
+    classifier = pickle.load(f)
+
+base_model = unwrap_classifier_for_shap(classifier)
+feature_names = (
+    list(base_model.feature_names_in_)
+    if hasattr(base_model, 'feature_names_in_')
+    else list(classifier.feature_names_in_)
+)
+X = df[feature_names]
 
 # ── Visual 1: SHAP Summary Plot ───────────────────────────────────────────────
 print("Generating SHAP summary plot...")
-X_sample = X.sample(n=5000, random_state=42)
+sample_n = min(5000, len(X))
+X_sample = X.sample(n=sample_n, random_state=42)
 
-explainer = shap.TreeExplainer(xgb_model)
+explainer = shap.TreeExplainer(base_model)
 shap_values = explainer.shap_values(X_sample)
 
 plt.figure(figsize=(10, 8))
