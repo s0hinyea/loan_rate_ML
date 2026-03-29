@@ -9,6 +9,7 @@ app/
 # Hidden internal files (Redo)
 specs/
 notebooks/
+!notebooks/analysis.ipynb
 venv/
 __pycache__/
 *.pyc
