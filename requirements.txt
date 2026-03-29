@@ -7,3 +7,4 @@ streamlit
 shap
 plotly
 altair<5
+pure-imghdr
