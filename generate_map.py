@@ -20,12 +20,24 @@ fig = px.choropleth(
     scope='usa',
     color_continuous_scale='Reds',
     title='SBA Default Rates by State (1987-2014)',
-    labels={'Default Rate (%)': 'Default Rate (%)'}
+    labels={'Default Rate (%)': 'Default Rate (%)'},
+    hover_name='State'
+)
+
+# ── Fix Reset Selection behavior ──────────────────────────────────────────────
+# By explicitly setting unselected opacity to 1.0, the "Reset" button doesn't
+# leave only the lassoed states highlighted.
+fig.update_traces(
+    unselected=dict(marker=dict(opacity=1.0)),
+    selected=dict(marker=dict(opacity=1.0))
 )
 
 fig.update_layout(
     title_font_size=18,
-    geo=dict(bgcolor='rgba(0,0,0,0)'),
+    geo=dict(
+        bgcolor='rgba(0,0,0,0)',
+        lakecolor='rgba(255, 255, 255, 0)'
+    ),
     margin=dict(l=0, r=0, t=40, b=0)
 )
 
