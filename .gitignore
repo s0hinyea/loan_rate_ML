@@ -1,1 +1,2 @@
 data/*.csv
+!data/df_clean.csv
