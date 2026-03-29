@@ -1,33 +1,28 @@
-# Is My Small Business Loan Rate Fair?
+# FairRate: AI-Powered Small Business Loan Fairness 🏛️📊🚀
 
-A data-driven transparency tool for small business owners to evaluate the fairness of their loan interest rates using the SBA National Loan Dataset. This project predicts both default risk (classification) and a fair interest rate range (regression) based on historical outcomes, ensuring borrowers understand if their quoted rate is reasonable given their industry, location, and business size.
+**Live Application:** [https://loanrateml.streamlit.app/](https://loanrateml.streamlit.app/)
+
+A data-driven transparency tool for small business owners to evaluate the fairness of their loan interest rates using the SBA National Loan Dataset (574,207 verified outcomes). 
+
+FairRate uses an **XGBoost Classifier (0.86 F1)** to predict default risk and an **XGBoost Regressor (0.738 R²)** to calculate a fair interest rate range based on historical government confidence.
 
 ## Project Structure
-- `data/`: Place the SBA National Loan Dataset here.
-- `notebooks/`: Contains `analysis.ipynb` for data cleaning, EDA, feature engineering, and model training.
-- `models/`: Models trained in the notebook will be saved here as pickle files (`.pkl`).
-- `app/`: Contains `app.py`, the interactive Streamlit application for end-user predictions.
+- `app/`: The interactive Streamlit application.
+- `notebooks/analysis.ipynb`: Full analytical pipeline (Cleaning, EDA, Training, Calibration).
+- `models/`: Production-ready XGBoost models (`.pkl`).
+- `data/df_clean.csv`: The processed, leakage-free dataset.
+- `visuals/`: Core EDA and SHAP explainability charts.
 
-## How to Install Dependencies
-It is recommended to use a virtual environment. Install the pinned dependencies using:
-```bash
-pip install -r requirements.txt
-```
+## Key Technical Wins
+- **0.86 F1 Score:** Optimized for imbalanced lending data using threshold tuning.
+- **Platt Calibration:** Ensures predicted risk % has real-world probabilistic meaning.
+- **Leakage-Free:** Strict removal of post-outcome columns to ensure valid predictive power.
+- **Glassmorphic UI:** A premium, modern FinTech user experience.
 
-## How to Run the Notebook
-To open and run the main analysis notebook, launch Jupyter Notebook from the project root:
-```bash
-jupyter notebook notebooks/analysis.ipynb
-```
-Follow the notebook cells in order to process raw data and save the model.
+## Quick Start
+1.  **Install:** `pip install -r requirements.txt`
+2.  **Run App:** `streamlit run app/app.py`
+3.  **Explore Data:** Open `notebooks/analysis.ipynb`.
 
-## How to Launch the Streamlit App
-To run the interactive demonstration application (even before the model is completely trained, it uses a placeholder):
-```bash
-streamlit run app/app.py
-```
-This will open the app in your default web browser.
-
-## Dataset
-Download the SBA (Small Business Administration) National Loan Dataset from Kaggle.
-Extract the CSV file into the `data/` directory. The notebook expects this file for its first steps.
+---
+**SBA Dataset 1987–2014 · AI Community Datathon 2026**
