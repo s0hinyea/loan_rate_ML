@@ -1,3 +1,6 @@
 data/*.csv
 !data/df_clean.csv
 specs
+venv/
+__pycache__/
+*.pyc
