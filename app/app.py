@@ -125,6 +125,10 @@ def engineer_features_for_model(
     franchise_val   = 1 if is_franchise else 0
     rev_line_val    = 1 if revolving_credit else 0
 
+    # GrAppv = requested loan amount; SBA_Appv = estimated guarantee
+    gr_appv  = loan_amount
+    sba_appv = loan_amount * sba_coverage_ratio
+
     features = {
         'ApprovalFY':            2024,
         'Term':                  term_months,
@@ -137,6 +141,8 @@ def engineer_features_for_model(
         'RevLineCr':             rev_line_val,
         'LowDoc':                low_doc_val,
         'DisbursementGross':     loan_amount,
+        'GrAppv':                gr_appv,
+        'SBA_Appv':              sba_appv,
         'loan_to_jobs_ratio':    loan_to_jobs_ratio,
         'is_recession':          is_recession,
         'industry_default_rate': industry_default_rate,
@@ -148,7 +154,8 @@ def engineer_features_for_model(
     }
 
     input_clf = pd.DataFrame([features])
-    input_reg = input_clf.drop(columns=['sba_coverage_ratio', 'disbursement_ratio', 'DisbursementGross'])
+    # Regressor was trained without GrAppv, SBA_Appv, sba_coverage_ratio, disbursement_ratio, DisbursementGross
+    input_reg = input_clf.drop(columns=['sba_coverage_ratio', 'disbursement_ratio', 'DisbursementGross', 'GrAppv', 'SBA_Appv'])
 
     return input_clf, input_reg
 
@@ -269,7 +276,7 @@ st.caption(
 )
 st.divider()
 
-if st.button("🔍 Analyze My Loan", type="primary", use_column_width=True):
+if st.button("🔍 Analyze My Loan", type="primary", use_container_width=True):
 
     with st.spinner("Analyzing your loan profile..."):
         input_clf, input_reg = engineer_features_for_model(
